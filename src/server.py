@@ -12,7 +12,6 @@ class HTTPServer:
         self.HOST = host
         self.PORT = port
         self.BUFFER = 1024
-        self.ENCODING = "utf-8"
         self.connections = list()
         self.MAX_CONNECTIONS = max_connections
 
@@ -39,15 +38,17 @@ class HTTPServer:
             request = await self.event_loop.sock_recv(client_sock, self.BUFFER)  # Receive data from client
 
             if request:  # Client send b'' when disconnecting
-                decoded_request = request.decode(self.ENCODING)
+                decoded_request = request.decode()
                 print(decoded_request)
 
                 # Send request to service and get response
-                response_from_service = await self.event_loop.create_task(
-                    self.proxy.send_request_to_service(decoded_request, self.event_loop))
+                service_response = await self.event_loop.create_task(
+                    self.proxy.send_request_to_service(request, self.event_loop))
 
                 # Send response back to client
-                await self.event_loop.sock_sendall(client_sock, response_from_service)
+                await self.event_loop.sock_sendall(client_sock, service_response[0])  # Headers
+                await self.event_loop.sock_sendall(client_sock, service_response[1])  # Body
+
                 break
 
     def start(self) -> None:
