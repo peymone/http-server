@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "http-server"
+version = "0.0.1"
+
+[project.scripts]
+serv = "src.__main__:start"
+
+[tool.setuptools.packages.find]
+where = ["."]
