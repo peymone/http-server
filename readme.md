@@ -1,0 +1,41 @@
+<h1 align="center">HTTP SERVER</h1>
+<p align="center">
+    <img src="https://img.shields.io/badge/%20python-3.11.3-blue?style=for-the-badge&logo=Python" alt="python">
+    <img src="https://img.shields.io/badge/%20asyncio-latest-brightgreen?style=for-the-badge" alt="asyncio">
+    <img src="https://img.shields.io/badge/%20socket-latest-brightgreen?style=for-the-badge" alt="socket">
+    <img src="https://img.shields.io/badge/%20mytile-week-brightgreen?style=for-the-badge" alt="mytime">
+
+</p>
+
+<h2>About</h2>
+
+*__HTTP Server for your web applications or other needs. All features implementing on native python with AsyncIO and Socket modules. Mainly, this project aims to show how to work with HTTP protocol combine with TLS security, and ofcourse asynchronous tasks.__*
+
+    Features:
+        - [] Secure connection between client and server with TLS
+        - [x] Accept connections from client and handle request
+        - [x] Send client request through proxy to web application
+        - [x] Balancing requests between multiple web applications
+        - [] Logging underhood stuff and connections
+        - [] Providing some useful commands with server CLI
+        - [] Serving static files
+
+> _All features above is asynchronous, don't worry_
+
+<h2>Installation</h2>
+
+> Well, actually, you have two routes from here: `DockerHub` or `GitHub`
+
+__Installation from GitHub__:
+
+- _Save project archive or clone repo on your local machine_
+- _Install python from <a ref="https://www.python.org/downloads/">official site</a>_
+- _Install project from it's directory:_ `python -m pip install -e .`
+- _Configurate server with file (examples inside):_ `https-server/src/configurations/config.ini`
+- _Now, you have to choices how to start server:_ `combine this two ways all you want`
+    - _with settings from config file:_ `serv`
+    - _with settings from shell arguments:_ `serv -H host -P port -M max_connections`
+
+__Installation from DockerHub__:
+
+> Currently, not implemented
