@@ -3,7 +3,7 @@
     <img src="https://img.shields.io/badge/%20python-3.11.3-blue?style=for-the-badge&logo=Python" alt="python">
     <img src="https://img.shields.io/badge/%20asyncio-latest-brightgreen?style=for-the-badge" alt="asyncio">
     <img src="https://img.shields.io/badge/%20socket-latest-brightgreen?style=for-the-badge" alt="socket">
-    <img src="https://img.shields.io/badge/%20mytile-week-brightgreen?style=for-the-badge" alt="mytime">
+    <img src="https://img.shields.io/badge/%20mytime-week-red?style=for-the-badge" alt="mytime">
 
 </p>
 
@@ -11,16 +11,16 @@
 
 *__HTTP Server for your web applications or other needs. All features implementing on native python with AsyncIO and Socket modules. Mainly, this project aims to show how to work with HTTP protocol combine with TLS security, and ofcourse asynchronous tasks.__*
 
-    Features:
-        - [] Secure connection between client and server with TLS
-        - [x] Accept connections from client and handle request
-        - [x] Send client request through proxy to web application
-        - [x] Balancing requests between multiple web applications
-        - [] Logging underhood stuff and connections
-        - [] Providing some useful commands with server CLI
-        - [] Serving static files
+_Features_:
+- [ ] _Secure connection between client and server with TLS_
+- [x] _Accept connections from client and handle request_
+- [x] _Send client request through proxy to web application_
+- [x] _Balancing requests between multiple web applications_
+- [ ] _Logging underhood stuff and connections_
+- [ ] _Providing some useful commands with server CLI_
+- [ ] _Serving static files_
 
-> _All features above is asynchronous, don't worry_
+> All features above is asynchronous, don't worry
 
 <h2>Installation</h2>
 
