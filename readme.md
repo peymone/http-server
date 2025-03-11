@@ -17,8 +17,9 @@ _Features_:
 - [x] _Send client request through proxy to web application_
 - [x] _Balancing requests between multiple web applications_
 - [ ] _Logging underhood stuff and connections_
-- [ ] _Providing some useful commands with server CLI_
+- [ ] _Caching frequently requested data_
 - [ ] _Serving static files_
+- [ ] _CLI for server configuration_
 
 > All features above is asynchronous, don't worry
 
