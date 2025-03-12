@@ -8,11 +8,11 @@ from src.proxy import Proxy
 from src.logger import logger_config
 
 
-def load_config() -> tuple[str, int, int, list]:
+def load_config() -> tuple[str, int, int, list, int]:
     parser = ArgumentParser()
-    parser.add_argument("-H", "--host", help="Enter server host", type=str, required=False)
-    parser.add_argument("-P", "--port", help="Enter server port", type=int, required=False)
-    parser.add_argument("-M", "--max", help="Enter max connections allowed", type=int, required=False)
+    parser.add_argument("-H", "--host", help="Server host", type=str, required=False)
+    parser.add_argument("-P", "--port", help="Server port", type=int, required=False)
+    parser.add_argument("-M", "--max", help="Max allowed connections", type=int, required=False)
     arguments = parser.parse_args()
 
     # Get default settings from config file
@@ -24,22 +24,25 @@ def load_config() -> tuple[str, int, int, list]:
     server_port = arguments.port if arguments.port else config.getint("SERVER", "PORT")
     max_connections = arguments.max if arguments.max else config.getint("SERVER", "MAX_CONNECTIONS")
 
+    # Get max connection attempts for proxy
+    proxy_max_con_attempts = config.getint("PROXY", "MAX_CON_ATTEMPTS")
+
     # Get clients list for balancer
     services = list()
     for client in config.items("SERVICES"):
         host, port = client[1].split()
         services.append((host, int(port)))
 
-    return server_host, server_port, max_connections, services
+    return server_host, server_port, max_connections, services, proxy_max_con_attempts
 
 
 def start() -> None:
     # Load configurations
-    host, port, max_connections, services = load_config()
+    host, port, max_connections, services, proxy_max_con_attempts = load_config()
     logger = logger_config.get_logger()
 
     # Create client and server instances
-    client = Proxy(services)
+    client = Proxy(services, proxy_max_con_attempts)
     server = HTTPServer(host, port, max_connections, client)
 
     # Log server staring message
