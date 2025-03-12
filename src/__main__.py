@@ -17,7 +17,7 @@ def load_config() -> tuple[str, int, int, list, int]:
 
     # Get default settings from config file
     config = ConfigParser()
-    config.read("src/configurations/config.ini")
+    config.read("etc/config.ini")
 
     # Reassign default settings with shell arguments if exists
     server_host = arguments.host if arguments.host else config.get("SERVER", "HOST")

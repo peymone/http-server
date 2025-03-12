@@ -3,7 +3,7 @@ import logging
 
 class LoggerConfig:
     def __init__(self):
-        FILE_PATH = "src/configurations/logs.log"
+        FILE_PATH = "etc/logs.log"
         TIME_FORMAT = "%d/%m/%Y %H:%M:%S"
         LOGGING_LEVEL = "DEBUG"
         HANDLER_FORMAT = "{asctime} {levelname} {message}"
