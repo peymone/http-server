@@ -4,13 +4,16 @@ import socket
 
 # My modules
 from src.proxy import Proxy
+from src.cacher import Cacher
 from src.parser import Parser
 from src.models import Headers
 from src.logger import logger_config
 
 
-# Get logger
+# Initialize some classes
 logger = logger_config.get_logger()
+cacher = Cacher()
+parser = Parser()
 
 
 class HTTPServer:
@@ -58,34 +61,39 @@ class HTTPServer:
 
         logger.info("Data handler for {}:{} was started".format(host, port))
 
-        while True:
-            # Receive data from client
+        while True:  # Receive data from client
             request = await self.event_loop.sock_recv(client_sock, self.BUFFER)
 
             # Client sends empty data when disconnecting - b''
             if request:
-                # Parse http request and log it
-                start_line, _ = Parser.parse_http_request(request)
                 logger.info(f"Request from {host}:{port} received")
 
-                # Send home page if no services in config file and close connection
-                if not self.proxy.services:
+                # Parse http request and get response from cache
+                request_start_line, _ = parser.parse_http_request(request)
+                cached_response = cacher.get(request_start_line)
+
+                if cached_response:  # Send response from cache
+                    await self.event_loop.sock_sendall(client_sock, cached_response[0])  # Headers
+                    await self.event_loop.sock_sendall(client_sock, cached_response[1])  # Body
+                    break
+
+                if not self.proxy.services:  # Send home page if no services in config
                     with open(self.HOME_PAGE, mode="rb") as home_page:
                         await self.event_loop.sock_sendall(client_sock, Headers.OK)
                         await self.event_loop.sock_sendfile(client_sock, home_page)
                     break
 
-                # Send request to service and get response
+                # Send request from client to servise
                 service_response = await self.event_loop.create_task(
-                    self.proxy.send_request_to_service(request, self.event_loop))
+                    self.proxy.send_request_to_service(request, self.event_loop)
+                )
 
-                # Send response back to client if it exists
-                if service_response:
-                    headers, body = service_response
-                    await self.event_loop.sock_sendall(client_sock, headers)
-                    await self.event_loop.sock_sendall(client_sock, body)
+                if service_response:  # Send service response to client
+                    await self.event_loop.sock_sendall(client_sock, service_response[0])  # Headers
+                    await self.event_loop.sock_sendall(client_sock, service_response[1])  # Body
+                    cacher.save(request_start_line, *service_response)  # Cache response
                 else:
-                    await self.event_loop.sock_sendall(client_sock, Headers.SERVICES_DOWN)
+                    await self.event_loop.sock_sendall(client_sock, Headers.SERVICES_DOWN)  # All services is down
 
                 logger.debug("Sended response from service to client")
                 break
@@ -95,14 +103,13 @@ class HTTPServer:
     def start(self) -> None:
         """Start accepting connections from clients"""
 
-        try:
-            # Run AsyncIO event loop and log it
+        try:  # Run AsyncIO event loop
             logger.debug("Starting accept connections")
             run_async(self.accept_connections())
 
-        except KeyboardInterrupt:
-            # Stop event loop and close server socket
+        except KeyboardInterrupt:  # Close event loop and server socket
             self.event_loop.stop()
             self.sock.close()
-
             logger.debug("Server socket was closed")
+
+            cacher.save_to_db()  # Save cache to database

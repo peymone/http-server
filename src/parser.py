@@ -1,6 +1,5 @@
 class Parser:
-    @classmethod
-    def parse_http_request(cls, request: bytes) -> tuple[str, dict[str, str]]:
+    def parse_http_request(self, request: bytes) -> tuple[str, dict[str, str]]:
         """Parse http request into start line and headers dictionary"""
 
         decoded_request = request.decode()
