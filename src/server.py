@@ -21,6 +21,7 @@ class HTTPServer:
         self.BUFFER = 1024
         self.connections = dict()
         self.MAX_CONNECTIONS = max_connections
+        self.HOME_PAGE = "etc/home_page.html"
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create socket object
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow socker reuse
@@ -65,6 +66,14 @@ class HTTPServer:
                 decoded_request = request.decode()
                 logger.info(f"Request from {host}:{port} received")
                 logger.info(decoded_request)
+
+                # Send home page if no services in config file and close connection
+                if not self.proxy.services:
+                    home_page = open("etc/home_page.html", mode="rb")
+                    headers = b"HTTP/1.0 200 OK\nContent-Type: text/html\n\n"
+                    await self.event_loop.sock_sendall(client_sock, headers)
+                    await self.event_loop.sock_sendfile(client_sock, home_page)
+                    break
 
                 # Send request to service and get response
                 service_response = await self.event_loop.create_task(
