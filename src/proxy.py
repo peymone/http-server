@@ -35,9 +35,10 @@ class Proxy:
             for service in self.balancer():
                 try:
                     # Connect to service and send request
-                    logger.debug("Sending request from client to service on {}:{}".format(service[0], service[1]))
+                    host, port = service
                     await event_loop.sock_connect(sock, service)
                     await event_loop.sock_sendall(sock, encoded_request)
+                    logger.debug("Sended request from client to service on {}:{}".format(host, port))
 
                     # Receive response from service
                     headers = await event_loop.sock_recv(sock, self.BUFFER)
@@ -55,9 +56,7 @@ class Proxy:
 
         # Return response from service
         if headers:
-            logger.debug("Receive answer from service")
-            decoded_headers = headers.decode()
-            decoded_body = body.decode()
+            logger.debug("Received response from service on {}:{}".format(host, port))
             return headers, body
         else:
             logger.debug("No data from service was received - all services is down")

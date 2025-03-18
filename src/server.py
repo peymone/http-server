@@ -4,6 +4,8 @@ import socket
 
 # My modules
 from src.proxy import Proxy
+from src.parser import Parser
+from src.models import Headers
 from src.logger import logger_config
 
 
@@ -62,32 +64,30 @@ class HTTPServer:
 
             # Client sends empty data when disconnecting - b''
             if request:
-                # Receive data and log it
-                decoded_request = request.decode()
+                # Parse http request and log it
+                start_line, _ = Parser.parse_http_request(request)
                 logger.info(f"Request from {host}:{port} received")
-                logger.info(decoded_request)
 
                 # Send home page if no services in config file and close connection
                 if not self.proxy.services:
-                    home_page = open("etc/home_page.html", mode="rb")
-                    headers = b"HTTP/1.0 200 OK\nContent-Type: text/html\n\n"
-                    await self.event_loop.sock_sendall(client_sock, headers)
-                    await self.event_loop.sock_sendfile(client_sock, home_page)
+                    with open(self.HOME_PAGE, mode="rb") as home_page:
+                        await self.event_loop.sock_sendall(client_sock, Headers.OK)
+                        await self.event_loop.sock_sendfile(client_sock, home_page)
                     break
 
                 # Send request to service and get response
                 service_response = await self.event_loop.create_task(
                     self.proxy.send_request_to_service(request, self.event_loop))
 
-                logger.debug("Sending response from service to client")
-
                 # Send response back to client if it exists
                 if service_response:
-                    await self.event_loop.sock_sendall(client_sock, service_response[0])  # Headers
-                    await self.event_loop.sock_sendall(client_sock, service_response[1])  # Body
+                    headers, body = service_response
+                    await self.event_loop.sock_sendall(client_sock, headers)
+                    await self.event_loop.sock_sendall(client_sock, body)
                 else:
-                    await self.event_loop.sock_sendall(client_sock, b"No data")
+                    await self.event_loop.sock_sendall(client_sock, Headers.SERVICES_DOWN)
 
+                logger.debug("Sended response from service to client")
                 break
 
         logger.info("Data handler for {}:{} was closed".format(host, port))
