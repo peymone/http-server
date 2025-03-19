@@ -1,33 +1,41 @@
 # Python libraries
 from asyncio import get_event_loop, run as run_async
+from datetime import datetime, timedelta
+from logging import Logger
 import socket
 
 # My modules
 from src.proxy import Proxy
 from src.cacher import Cacher
 from src.parser import Parser, Headers
-from src.logger import logger_config
 
 
-# Initialize some classes
-logger = logger_config.get_logger()
-cacher = Cacher()
 parser = Parser()
 
 
 class HTTPServer:
-    def __init__(self, host: str, port: int, max_connections: int, proxy: Proxy) -> None:
+    def __init__(self, host: str, port: int, max_connections: int, logger: Logger, cacher: Cacher, proxy: Proxy, home_page: str, down_page: str, time_format: str) -> None:
         """Configurate TCP socket for server"""
 
-        self.proxy = proxy
+        # Main settings
         self.HOST = host
         self.PORT = port
         self.BUFFER = 1024
-        self.connections = dict()
         self.MAX_CONNECTIONS = max_connections
-        self.HOME_PAGE = "etc/templates/home_page.html"
-        self.DOWN_PAGE = "etc/templates/services_down.html"
 
+        # Class instances
+        self.logger = logger
+        self.cacher = cacher
+        self.proxy = proxy
+
+        # Additional settings
+        self.HOME_PAGE = home_page
+        self.DOWN_PAGE = down_page
+        self.TIME_FORMAT = time_format
+
+        self.connections = dict()
+
+        # Create and configurate socket object
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create socket object
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow socker reuse
         self.sock.bind((self.HOST, self.PORT))  # Bind server address to socket
@@ -56,10 +64,10 @@ class HTTPServer:
 
             # Parse http request and log it
             request_start_line, headers = parser.parse_http_request(request)
-            logger.info(f"Request from {host}:{port} received: {request_start_line}")
+            self.logger.info(f"Request from {host}:{port} received: {request_start_line}")
 
             # Send response from cache if exists
-            if cached_response := cacher.get(request_start_line):
+            if cached_response := self.cacher.get(request_start_line):
                 await self.event_loop.sock_sendall(client_sock, cached_response[0])  # Headers
                 await self.event_loop.sock_sendall(client_sock, cached_response[1])  # Body
 
@@ -77,22 +85,33 @@ class HTTPServer:
                 if service_response:  # Send service response back to client
                     await self.event_loop.sock_sendall(client_sock, service_response[0])  # Headers
                     await self.event_loop.sock_sendall(client_sock, service_response[1])  # Body
-                    cacher.save(request_start_line, *service_response)  # Cache response
+                    self.cacher.save(request_start_line, *service_response)  # Cache response
                 else:
                     # Send down page - all services is down
                     with open(self.DOWN_PAGE, mode="rb") as down_page:
                         await self.event_loop.sock_sendall(client_sock, Headers.SERVICES_DOWN)  # Headers
                         await self.event_loop.sock_sendfile(client_sock, down_page)  # Body
 
-                logger.debug(f"Response from service sended back to client on {host}:{port}")
+                self.logger.debug(f"Response from service sended back to client on {host}:{port}")
 
     def start(self) -> None:
         """Start accepting connections from clients"""
 
-        try:  # Run AsyncIO event loop
-            run_async(self.accept_connections())
+        start_time = datetime.now()
+
+        try:
+            welcome_string = f"Server starting on http://{self.HOST}:{self.PORT}"
+            self.logger.info(welcome_string)
+            print("\n", welcome_string, "\n")
+
+            run_async(self.accept_connections())  # Run AsyncIO event loop
 
         except KeyboardInterrupt:  # Close event loop and socket, save cache to db
             self.event_loop.stop()
             self.sock.close()
-            cacher.save_to_db()
+            self.cacher.save_to_db()
+
+            # Get working time and log it
+            working_time = datetime.now() - start_time
+            self.logger.info("Server was stopped, working time: {}".format(working_time))
+            print("\nServer was stopped, working time: {}\n".format(working_time))

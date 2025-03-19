@@ -3,12 +3,13 @@ import sqlite3
 
 
 class Cacher:
-    def __init__(self, cache_expire_minutes: int = 5) -> None:
+    def __init__(self, cache_expire_minutes: int, db_path: str, time_format: str) -> None:
         """Create database and load cache from it to dictionary"""
 
+        # Initialize settings
         self.cache = dict()
-        self.DB_PATH = "etc/cache.db"
-        self.TIME_FORMAT = "%d/%m/%Y %H:%M:%S"
+        self.DB_PATH = db_path
+        self.TIME_FORMAT = time_format
         self.EXPIRE_MINUTES = cache_expire_minutes
 
         # Create database and table
