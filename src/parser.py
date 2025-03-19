@@ -1,17 +1,25 @@
+from dataclasses import dataclass
+
+
 class Parser:
     def parse_http_request(self, request: bytes) -> tuple[str, dict[str, str]]:
         """Parse http request into start line and headers dictionary"""
 
-        decoded_request = request.decode()
-        parsing_lines = decoded_request.splitlines()
         headers = dict()
+        decoded_request = request.decode()
+        splited_request = decoded_request.splitlines()
 
-        headers["method"] = parsing_lines[0].split()[0]
-        headers["path"] = parsing_lines[0].split()[1]
-        headers["protocol"] = parsing_lines[0].split()[2]
-
-        for line in parsing_lines[1:-1]:
-            key, value = line.split(":", 1)
+        for line in splited_request[1:-1]:
+            key, value = line.split(":", maxsplit=1)
             headers[key] = value.strip()
 
-        return parsing_lines[0], headers
+        return splited_request[0], headers
+
+
+HTML_CONTENT = b"\nContent-Type: text/html\nConnection: close\n\n"
+
+
+@dataclass
+class Headers:
+    OK: bytes = b"HTTP/1.0 200 OK" + HTML_CONTENT
+    SERVICES_DOWN: bytes = b"HTTP/1.0 503 Bad" + HTML_CONTENT
