@@ -17,7 +17,7 @@ _Features_:
 - [x] _Send client request through proxy to web application_
 - [x] _Balancing requests between multiple web applications_
 - [x] _Logging underhood stuff and connections_
-- [ ] _Caching frequently requested data_
+- [x] _Caching frequently requested data_
 - [ ] _Serving static files_
 - [ ] _CLI for server configuration_
 
