@@ -19,7 +19,6 @@ _Features_:
 - [x] _Logging underhood stuff and connections_
 - [x] _Caching frequently requested data_
 - [ ] _Serving static files_
-- [ ] _CLI for server configuration_
 
 > All features above is asynchronous, don't worry
 

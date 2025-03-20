@@ -97,14 +97,11 @@ class HTTPServer:
     def start(self) -> None:
         """Start accepting connections from clients"""
 
+        self.logger.info("Server starting on http://{}:{}".format(self.HOST, self.PORT))
         start_time = datetime.now()
 
-        try:
-            welcome_string = f"Server starting on http://{self.HOST}:{self.PORT}"
-            self.logger.info(welcome_string)
-            print("\n", welcome_string, "\n")
-
-            run_async(self.accept_connections())  # Run AsyncIO event loop
+        try:  # Run AsyncIO event loop
+            run_async(self.accept_connections())
 
         except KeyboardInterrupt:  # Close event loop and socket, save cache to db
             self.event_loop.stop()
@@ -114,4 +111,3 @@ class HTTPServer:
             # Get working time and log it
             working_time = datetime.now() - start_time
             self.logger.info("Server was stopped, working time: {}".format(working_time))
-            print("\nServer was stopped, working time: {}\n".format(working_time))
