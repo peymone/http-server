@@ -8,12 +8,13 @@ class Parser:
         headers = dict()
         decoded_request = request.decode()
         splited_request = decoded_request.splitlines()
+        request_start_line = " ".join(splited_request[0].split()[:-1])
 
         for line in splited_request[1:-1]:
             key, value = line.split(":", maxsplit=1)
             headers[key] = value.strip()
 
-        return splited_request[0], headers
+        return request_start_line, headers
 
 
 HTML_CONTENT = b"\nContent-Type: text/html\nConnection: close\n\n"

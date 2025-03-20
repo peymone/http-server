@@ -22,27 +22,42 @@ def load_config() -> dict:
     config = RawConfigParser()
     config.read("etc/config.ini")
 
-    # Reassign default settings for server from shell arguments
+    # Get base settings
+    settings["time_format"] = config.get("BASE", "TIME_FORMAT")
+    settings["static_path"] = config.get("BASE", "STATIC_PATH")
+
+    # Get server settings
     settings["host"] = arguments.host if arguments.host else config.get("SERVER", "HOST")
     settings["port"] = arguments.port if arguments.port else config.getint("SERVER", "PORT")
     settings["max_con"] = arguments.max if arguments.max else config.getint("SERVER", "MAX_CONNECTIONS")
-
-    # Get other settings from config
-    settings["proxy_max_con_attempts"] = config.getint("PROXY", "MAX_CON_ATTEMPTS")
-    settings["cache_expire_minutes"] = config.getint("CACHER", "EXPIRE_MINUTES")
-    settings["cache_db_path"] = config.get("CACHER", "DB_PATH")
-    settings["time_format"] = config.get("BASE", "TIME_FORMAT")
-    settings["logs_path"] = config.get("LOGGER", "LOGS_PATH")
     settings["home_page"] = config.get("SERVER", "HOME_PAGE_PATH")
     settings["down_page"] = config.get("SERVER", "DOWN_PAGE_PATH")
 
-    # Get clients list for balancer
+    # Get proxy, cacher and logger settings
+    settings["proxy_max_con_attempts"] = config.getint("PROXY", "MAX_CON_ATTEMPTS")
+    settings["cache_expire_minutes"] = config.getint("CACHER", "EXPIRE_MINUTES")
+    settings["cache_db_path"] = config.get("CACHER", "DB_PATH")
+    settings["logs_path"] = config.get("LOGGER", "LOGS_PATH")
+
+    # Get list of services
     services = list()
-    for client in config.items("SERVICES"):
-        host, port = client[1].split()
+
+    for service in config.items("SERVICES"):
+        host, port = service[1].split()
         services.append((host, int(port)))
 
     settings["services"] = services
+
+    # Get list of statics
+    statics = dict()
+
+    for static in config.items("STATICS"):
+        method, path, file = static[1].split()
+        statics[method + " " + path] = file
+
+    settings["statics"] = statics
+
+    print(settings["statics"])
 
     return settings
 
@@ -57,5 +72,6 @@ def start() -> None:
 
     # Create and start server
     server = HTTPServer(config["host"], config["port"], config["max_con"], logger_config.get_logger(), cacher, proxy,
-                        config["home_page"], config["down_page"], config["time_format"])
+                        config["home_page"], config["down_page"], config["time_format"], config["static_path"], config["statics"])
+
     server.start()  # Start server

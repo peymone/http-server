@@ -14,7 +14,8 @@ parser = Parser()
 
 
 class HTTPServer:
-    def __init__(self, host: str, port: int, max_connections: int, logger: Logger, cacher: Cacher, proxy: Proxy, home_page: str, down_page: str, time_format: str) -> None:
+    def __init__(self, host: str, port: int, max_connections: int, logger: Logger, cacher: Cacher, proxy: Proxy,
+                 home_page: str, down_page: str, time_format: str, static_path: str, statics: dict[str, str]) -> None:
         """Configurate TCP socket for server"""
 
         # Main settings
@@ -32,6 +33,8 @@ class HTTPServer:
         self.HOME_PAGE = home_page
         self.DOWN_PAGE = down_page
         self.TIME_FORMAT = time_format
+        self.STATIC_PATH = static_path
+        self.STATICS = statics
 
         self.connections = dict()
 
@@ -66,8 +69,14 @@ class HTTPServer:
             request_start_line, headers = parser.parse_http_request(request)
             self.logger.info(f"Request from {host}:{port} received: {request_start_line}")
 
+            # Send response from static directory
+            if request_start_line in self.STATICS:
+                with open(self.STATIC_PATH + self.STATICS[request_start_line], mode="rb") as document:
+                    await self.event_loop.sock_sendall(client_sock, Headers.OK)
+                    await self.event_loop.sock_sendfile(client_sock, document)
+
             # Send response from cache if exists
-            if cached_response := self.cacher.get(request_start_line):
+            elif cached_response := self.cacher.get(request_start_line):
                 await self.event_loop.sock_sendall(client_sock, cached_response[0])  # Headers
                 await self.event_loop.sock_sendall(client_sock, cached_response[1])  # Body
 
