@@ -18,7 +18,7 @@ _Features_:
 - [x] _Balancing requests between multiple web applications_
 - [x] _Logging underhood stuff and connections_
 - [x] _Caching frequently requested data_
-- [ ] _Serving static files_
+- [x] _Serving static files_
 
 > All features above is asynchronous, don't worry
 
