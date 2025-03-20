@@ -101,7 +101,7 @@ class HTTPServer:
                         await self.event_loop.sock_sendall(client_sock, Headers.SERVICES_DOWN)  # Headers
                         await self.event_loop.sock_sendfile(client_sock, down_page)  # Body
 
-                self.logger.debug(f"Response from service sended back to client on {host}:{port}")
+            self.logger.debug(f"Response sended back to client on {host}:{port}")
 
     def start(self) -> None:
         """Start accepting connections from clients"""
