@@ -2,9 +2,9 @@ import logging
 
 
 class LoggerConfig:
-    def __init__(self):
-        FILE_PATH = "etc/logs.log"
-        TIME_FORMAT = "%d/%m/%Y %H:%M:%S"
+    def __init__(self, save_file_path: str, time_format: str) -> None:
+        FILE_PATH = save_file_path
+        TIME_FORMAT = time_format
         LOGGING_LEVEL = "DEBUG"
         HANDLER_FORMAT = "{asctime} {levelname} {message}"
 
@@ -24,6 +24,3 @@ class LoggerConfig:
 
     def get_logger(self) -> logging.Logger:
         return self.logger
-
-
-logger_config = LoggerConfig()

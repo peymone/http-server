@@ -1,31 +1,40 @@
 # Python libraries
-from configparser import ConfigParser
+from configparser import RawConfigParser
 from argparse import ArgumentParser
 
 # My modules
+from src.logger import LoggerConfig
 from src.server import HTTPServer
+from src.cacher import Cacher
 from src.proxy import Proxy
-from src.logger import logger_config
 
 
-def load_config() -> tuple[str, int, int, list, int]:
+def load_config() -> dict:
+    settings = dict()
+
     parser = ArgumentParser()
     parser.add_argument("-H", "--host", help="Server host", type=str, required=False)
     parser.add_argument("-P", "--port", help="Server port", type=int, required=False)
     parser.add_argument("-M", "--max", help="Max allowed connections", type=int, required=False)
     arguments = parser.parse_args()
 
-    # Get default settings from config file
-    config = ConfigParser()
+    # Read config file
+    config = RawConfigParser()
     config.read("etc/config.ini")
 
-    # Reassign default settings with shell arguments if exists
-    server_host = arguments.host if arguments.host else config.get("SERVER", "HOST")
-    server_port = arguments.port if arguments.port else config.getint("SERVER", "PORT")
-    max_connections = arguments.max if arguments.max else config.getint("SERVER", "MAX_CONNECTIONS")
+    # Reassign default settings for server from shell arguments
+    settings["host"] = arguments.host if arguments.host else config.get("SERVER", "HOST")
+    settings["port"] = arguments.port if arguments.port else config.getint("SERVER", "PORT")
+    settings["max_con"] = arguments.max if arguments.max else config.getint("SERVER", "MAX_CONNECTIONS")
 
-    # Get max connection attempts for proxy
-    proxy_max_con_attempts = config.getint("PROXY", "MAX_CON_ATTEMPTS")
+    # Get other settings from config
+    settings["proxy_max_con_attempts"] = config.getint("PROXY", "MAX_CON_ATTEMPTS")
+    settings["cache_expire_minutes"] = config.getint("CACHER", "EXPIRE_MINUTES")
+    settings["cache_db_path"] = config.get("CACHER", "DB_PATH")
+    settings["time_format"] = config.get("BASE", "TIME_FORMAT")
+    settings["logs_path"] = config.get("LOGGER", "LOGS_PATH")
+    settings["home_page"] = config.get("SERVER", "HOME_PAGE_PATH")
+    settings["down_page"] = config.get("SERVER", "DOWN_PAGE_PATH")
 
     # Get clients list for balancer
     services = list()
@@ -33,26 +42,20 @@ def load_config() -> tuple[str, int, int, list, int]:
         host, port = client[1].split()
         services.append((host, int(port)))
 
-    return server_host, server_port, max_connections, services, proxy_max_con_attempts
+    settings["services"] = services
+
+    return settings
 
 
 def start() -> None:
-    # Load configurations
-    host, port, max_connections, services, proxy_max_con_attempts = load_config()
-    logger = logger_config.get_logger()
+    config = load_config()  # Load configurations
 
-    # Create client and server instances
-    client = Proxy(services, proxy_max_con_attempts)
-    server = HTTPServer(host, port, max_connections, client)
+    # Create class instances
+    logger_config = LoggerConfig(config["logs_path"], config["time_format"])
+    cacher = Cacher(config["cache_expire_minutes"], config["cache_db_path"], config["time_format"])
+    proxy = Proxy(config["services"], config["proxy_max_con_attempts"], logger_config.get_logger())
 
-    # Log server staring message
-    server_starting_message = f"Starting server on http://{host}:{port}"
-    logger.info(server_starting_message)
-    print("\n" + server_starting_message + "\n")
-
-    # Start server
-    server.start()
-
-
-if __name__ == "__main__":
-    start()
+    # Create and start server
+    server = HTTPServer(config["host"], config["port"], config["max_con"], logger_config.get_logger(), cacher, proxy,
+                        config["home_page"], config["down_page"], config["time_format"])
+    server.start()  # Start server

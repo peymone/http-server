@@ -1,108 +1,117 @@
 # Python libraries
 from asyncio import get_event_loop, run as run_async
+from datetime import datetime, timedelta
+from logging import Logger
 import socket
 
 # My modules
 from src.proxy import Proxy
-from src.parser import Parser
-from src.models import Headers
-from src.logger import logger_config
+from src.cacher import Cacher
+from src.parser import Parser, Headers
 
 
-# Get logger
-logger = logger_config.get_logger()
+parser = Parser()
 
 
 class HTTPServer:
-    def __init__(self, host: str, port: int, max_connections: int, proxy: Proxy) -> None:
+    def __init__(self, host: str, port: int, max_connections: int, logger: Logger, cacher: Cacher, proxy: Proxy, home_page: str, down_page: str, time_format: str) -> None:
         """Configurate TCP socket for server"""
 
-        self.proxy = proxy
+        # Main settings
         self.HOST = host
         self.PORT = port
         self.BUFFER = 1024
-        self.connections = dict()
         self.MAX_CONNECTIONS = max_connections
-        self.HOME_PAGE = "etc/home_page.html"
 
+        # Class instances
+        self.logger = logger
+        self.cacher = cacher
+        self.proxy = proxy
+
+        # Additional settings
+        self.HOME_PAGE = home_page
+        self.DOWN_PAGE = down_page
+        self.TIME_FORMAT = time_format
+
+        self.connections = dict()
+
+        # Create and configurate socket object
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Create socket object
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow socker reuse
         self.sock.bind((self.HOST, self.PORT))  # Bind server address to socket
         self.sock.listen(self.MAX_CONNECTIONS)  # Enable listen mode
         self.sock.setblocking(False)  # For async usage
 
-        logger.debug("Server socket was created")
-
     async def accept_connections(self) -> None:
         """Accept client connections and start data receiving"""
 
-        # Create AsyncIO event loop for socket methods
-        self.event_loop = get_event_loop()
+        self.event_loop = get_event_loop()  # Event loop for socket communication
 
-        # Accept connection from clients
+        # Accept connection from client
         while len(self.connections) < self.MAX_CONNECTIONS:
             client_sock, client_addr = await self.event_loop.sock_accept(self.sock)
-            host, port = client_addr
-
-            # Add client to connections dict
-            self.connections[client_addr] = client_sock
-            logger.info(f"Connection with {host}:{port} was established")
+            self.connections[client_addr] = client_sock  # Add client to conenction dict
 
             # Create async event loop task for client communication
-            self.event_loop.create_task(self.handle_connection(client_sock, host, port))
-
-        logger.debug("Stopping accept connections")
+            self.event_loop.create_task(self.handle_connection(client_sock, *client_addr))
 
     async def handle_connection(self, client_sock: socket, host: str, port: int) -> None:
         """Handle communication with specific client"""
 
-        logger.info("Data handler for {}:{} was started".format(host, port))
+        request = await self.event_loop.sock_recv(client_sock, self.BUFFER)  # Receive data from client
 
-        while True:
-            # Receive data from client
-            request = await self.event_loop.sock_recv(client_sock, self.BUFFER)
+        if request:  # Client sends empty data when disconnecting
 
-            # Client sends empty data when disconnecting - b''
-            if request:
-                # Parse http request and log it
-                start_line, _ = Parser.parse_http_request(request)
-                logger.info(f"Request from {host}:{port} received")
+            # Parse http request and log it
+            request_start_line, headers = parser.parse_http_request(request)
+            self.logger.info(f"Request from {host}:{port} received: {request_start_line}")
 
-                # Send home page if no services in config file and close connection
-                if not self.proxy.services:
-                    with open(self.HOME_PAGE, mode="rb") as home_page:
-                        await self.event_loop.sock_sendall(client_sock, Headers.OK)
-                        await self.event_loop.sock_sendfile(client_sock, home_page)
-                    break
+            # Send response from cache if exists
+            if cached_response := self.cacher.get(request_start_line):
+                await self.event_loop.sock_sendall(client_sock, cached_response[0])  # Headers
+                await self.event_loop.sock_sendall(client_sock, cached_response[1])  # Body
 
-                # Send request to service and get response
-                service_response = await self.event_loop.create_task(
-                    self.proxy.send_request_to_service(request, self.event_loop))
+            # Send home page if no services listed in config
+            elif not self.proxy.services:
+                with open(self.HOME_PAGE, mode="rb") as home_page:
+                    await self.event_loop.sock_sendall(client_sock, Headers.OK)  # Headers
+                    await self.event_loop.sock_sendfile(client_sock, home_page)  # Body
 
-                # Send response back to client if it exists
-                if service_response:
-                    headers, body = service_response
-                    await self.event_loop.sock_sendall(client_sock, headers)
-                    await self.event_loop.sock_sendall(client_sock, body)
+            # Send response from services
+            else:
+                # Send request from client to service
+                service_response = await self.event_loop.create_task(self.proxy.send_request_to_service(request, self.event_loop))
+
+                if service_response:  # Send service response back to client
+                    await self.event_loop.sock_sendall(client_sock, service_response[0])  # Headers
+                    await self.event_loop.sock_sendall(client_sock, service_response[1])  # Body
+                    self.cacher.save(request_start_line, *service_response)  # Cache response
                 else:
-                    await self.event_loop.sock_sendall(client_sock, Headers.SERVICES_DOWN)
+                    # Send down page - all services is down
+                    with open(self.DOWN_PAGE, mode="rb") as down_page:
+                        await self.event_loop.sock_sendall(client_sock, Headers.SERVICES_DOWN)  # Headers
+                        await self.event_loop.sock_sendfile(client_sock, down_page)  # Body
 
-                logger.debug("Sended response from service to client")
-                break
-
-        logger.info("Data handler for {}:{} was closed".format(host, port))
+                self.logger.debug(f"Response from service sended back to client on {host}:{port}")
 
     def start(self) -> None:
         """Start accepting connections from clients"""
 
-        try:
-            # Run AsyncIO event loop and log it
-            logger.debug("Starting accept connections")
-            run_async(self.accept_connections())
+        start_time = datetime.now()
 
-        except KeyboardInterrupt:
-            # Stop event loop and close server socket
+        try:
+            welcome_string = f"Server starting on http://{self.HOST}:{self.PORT}"
+            self.logger.info(welcome_string)
+            print("\n", welcome_string, "\n")
+
+            run_async(self.accept_connections())  # Run AsyncIO event loop
+
+        except KeyboardInterrupt:  # Close event loop and socket, save cache to db
             self.event_loop.stop()
             self.sock.close()
+            self.cacher.save_to_db()
 
-            logger.debug("Server socket was closed")
+            # Get working time and log it
+            working_time = datetime.now() - start_time
+            self.logger.info("Server was stopped, working time: {}".format(working_time))
+            print("\nServer was stopped, working time: {}\n".format(working_time))
