@@ -23,7 +23,11 @@ class Cacher:
         self.cache[request_start_line] = response_headers, response_body, expire_date.strftime(self.TIME_FORMAT)
 
     def get(self, request_start_line: str) -> tuple[bytes, bytes, str] | None:
-        return self.cache.get(request_start_line, None)
+        cache = self.cache.get(request_start_line, None)
+        if cache and not self.is_expired(cache[-1]):
+            return cache
+
+        return None
 
     def save_to_db(self) -> None:
         """Save cache dict to database and close connection"""

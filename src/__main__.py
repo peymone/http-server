@@ -57,8 +57,6 @@ def load_config() -> dict:
 
     settings["statics"] = statics
 
-    print(settings["statics"])
-
     return settings
 
 
