@@ -1,39 +1,46 @@
+# Python library
 from datetime import datetime, timedelta
 import sqlite3
 
+# My modules
+from src.config import config
+from src.logger import logger
+
 
 class Cacher:
-    def __init__(self, cache_expire_minutes: int, db_path: str, time_format: str) -> None:
+    def __init__(self) -> None:
         """Create database and load cache from it to dictionary"""
 
-        # Initialize settings
         self.cache = dict()
-        self.DB_PATH = db_path
-        self.TIME_FORMAT = time_format
-        self.EXPIRE_MINUTES = cache_expire_minutes
 
         # Create database and table
-        self.db = sqlite3.connect(self.DB_PATH)
+        self.db = sqlite3.connect(config["cache_path"])
         self.cursor = self.db.cursor()
         self.create_table()  # Create table if not exists
         self.load_from_db()  # Load cache to memory and drop table
 
-    def save(self, request_start_line: str, response_headers: bytes, response_body: bytes) -> None:
-        expire_date = datetime.now() + timedelta(minutes=self.EXPIRE_MINUTES)
-        self.cache[request_start_line] = response_headers, response_body, expire_date.strftime(self.TIME_FORMAT)
+    def save(self, request: str, response: bytes) -> None:
+        """Save cache in memory"""
 
-    def get(self, request_start_line: str) -> tuple[bytes, bytes, str] | None:
-        cache = self.cache.get(request_start_line, None)
+        logger.debug(f"Saving response to cahce for: '{request}'")
+        expire_date = datetime.now() + timedelta(minutes=config["cache_expire_minutes"])
+        self.cache[request] = response, expire_date.strftime(config["time_format"])
+
+    def get(self, request: str) -> tuple[bytes, bytes, str] | None:
+        """Get cache data by request start line"""
+
+        cache = self.cache.get(request, None)
         if cache and not self.is_expired(cache[-1]):
-            return cache
+            logger.debug(f"Got response from cache for request: '{request}'")
+            return cache[0]
 
         return None
 
     def save_to_db(self) -> None:
-        """Save cache dict to database and close connection"""
+        """Save cache from memory to database"""
 
-        save_list = [(key, values[0], values[1], values[2]) for key, values in self.cache.items()]
-        self.cursor.executemany("INSERT INTO cache (request, header, body, expire) VALUES (?, ?, ?, ?)", save_list)
+        save_list = [(key, values[0], values[1]) for key, values in self.cache.items()]
+        self.cursor.executemany("INSERT INTO cache (request, response, expire) VALUES (?, ?, ?)", save_list)
         self.db.commit()
         self.db.close()
 
@@ -47,9 +54,9 @@ class Cacher:
 
             # Add cache data from database to dict
             for data in fetched_data:
-                request_start_line, headers, body, expire_date = data
+                request, response, expire_date = data
                 if not self.is_expired(expire_date):
-                    self.cache[request_start_line] = headers, body, expire_date
+                    self.cache[request] = response, expire_date
 
             # Delete data from database
             self.cursor.execute("DROP TABLE cache")
@@ -58,9 +65,12 @@ class Cacher:
     def create_table(self) -> None:
         """Create table 'cache' and commit changes"""
 
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS cache (request TEXT, header TEXT, body TEXT, expire TEXT)")
+        self.cursor.execute("CREATE TABLE IF NOT EXISTS cache (request TEXT, response TEXT, expire TEXT)")
         self.db.commit()
 
     def is_expired(self, expire_date_string: str) -> bool:
-        expire_date = datetime.strptime(expire_date_string, self.TIME_FORMAT)
+        expire_date = datetime.strptime(expire_date_string, config["time_format"])
         return True if datetime.now() >= expire_date else False
+
+
+cacher = Cacher()

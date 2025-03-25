@@ -1,58 +1,54 @@
 # Python libraries
-from asyncio import AbstractEventLoop
 from typing import Generator
-from logging import Logger
+import asyncio
 import socket
+
+# My modules
+from src.config import config
+from src.logger import logger
 
 
 class Proxy:
-    def __init__(self, services: list[tuple[str, int]], max_con_attempts: int, logger: Logger):
-        self.services = services
-        self.logger = logger
-        self.BUFFER = 1024
-        self.MAX_CONNECTION_ATTEMPTS = max_con_attempts
-
+    @classmethod
     def balancer(self) -> Generator[tuple[str, int], None, None]:
         """Get service for connecting"""
 
         counter = 0
-        while counter < self.MAX_CONNECTION_ATTEMPTS:
-            for service in self.services:
-                yield service
+        while counter < config["proxy_con_attempts"]:
+            for host, port in config["services"].items():
+                yield host, port
             counter += 1
 
-    async def send_request_to_service(self, encoded_request: bytes, event_loop: AbstractEventLoop) -> tuple[bytes, bytes] | None:
+    @classmethod
+    async def send_request_to_service(self, request: bytes, host: str, port: int):
         """Send request to remote service by TCP socket"""
 
-        headers = None
+        event_loop = asyncio.get_running_loop()
+        headers = body = None
 
         # Create TCP socket and send request to service
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             for service in self.balancer():
                 try:
                     # Connect to service and send request
-                    self.logger.debug("Sending request to service on {}:{}".format(*service))
+                    logger.debug("Sending request from {}:{} to service {}:{}".format(host, port, *service))
                     await event_loop.sock_connect(sock, service)
-                    await event_loop.sock_sendall(sock, encoded_request)
+                    await event_loop.sock_sendall(sock, request)
 
                     # Receive response from service
-                    headers = await event_loop.sock_recv(sock, self.BUFFER)
-                    body = await event_loop.sock_recv(sock, self.BUFFER)
+                    headers = await event_loop.sock_recv(sock, config["buffer"])
+                    body = await event_loop.sock_recv(sock, config["buffer"])
 
-                # Can't connect to service
+               # Unable to connect to service
                 except ConnectionRefusedError:
                     pass
                 except OSError:
                     pass
 
-                # Got non empty answer from service
-                if headers is not None:
-                    break
-
-        # Return response from service
-        if headers:
-            self.logger.debug("Received response from service on {}:{}".format(*service))
-            return headers, body
+        # Return service response back to server
+        if headers or body:
+            logger.debug("Received response from service {}:{}".format(*service))
+            return headers + body
         else:
-            self.logger.debug("No response from services - all services is down")
+            logger.debug("No data received from service (all services is down)")
             return None

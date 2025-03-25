@@ -1,0 +1,24 @@
+{
+    "time_format": "%d/%m/%Y %H:%M:%S",
+    "static_path": "etc/statics/",
+    "logs_path": "etc/logs.log",
+    "host": "localhost",
+    "port": 8080,
+    "buffer": 1024,
+    "max_connections": 100,
+    "proxy_con_attempts": 1,
+    "cache_expire_minutes": 60,
+    "cache_path": "etc/cache.db",
+    "home_page": "etc/templates/home_page.html",
+    "down_page": "etc/templates/services_down.html",
+    "cert_path": "etc/sert/certificate.pem",
+    "cert_key": "etc/sert/private_key.pem",
+    "cert_pass": "supersecret",
+    "services": {
+        "127.0.0.1": 8000
+    },
+    "statics": {
+        "GET /static": "example_gae.html",
+        "GET /static_example": "example_page.html"
+    }
+}
