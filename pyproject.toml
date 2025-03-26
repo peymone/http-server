@@ -7,7 +7,7 @@ name = "http-server"
 version = "0.0.1"
 
 [project.scripts]
-serv = "src.__main__:start"
+serv = "src.server:run"
 
 [tool.setuptools.packages.find]
 where = ["."]
